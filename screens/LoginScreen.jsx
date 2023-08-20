@@ -3,14 +3,54 @@ import React, { useState } from "react";
 import { BGImage, Logo } from "../assets";
 import { UserTextInput } from "../components";
 import { useNavigation } from "@react-navigation/native";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { firebaseAuth, firestoreDB } from "../config/firebase.config";
+import { doc, getDoc } from "firebase/firestore";
+import { useDispatch } from "react-redux";
+import { SET_USER } from "../context/actions/userActions";
 
 const LoginScreen = () => {
   const screenWidth = Math.round(Dimensions.get("window").width);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [getEmailValidationStatus, setGetEmailValidationStatus] =
+    useState(false);
+  const [alert, setAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState(null);
 
   const navigation = useNavigation();
 
+  const dispatch = useDispatch();
+
+  const handleLogin = async () => {
+    try {
+      const allDetails = email !== "" && password !== "";
+      if (getEmailValidationStatus && allDetails) {
+        const userCredentials = await signInWithEmailAndPassword(
+          firebaseAuth,
+          email,
+          password
+        );
+        if (userCredentials) {
+          const userDetails = await getDoc(
+            doc(firestoreDB, "users", userCredentials.user.uid)
+          );
+          if (userDetails.exists()) {
+            dispatch(SET_USER(userDetails.data()));
+            console.log("User Data:", userDetails.data());
+          }
+        }
+      }
+    } catch (error) {
+      setAlert(true);
+      setAlertMessage("Invalid Credentials");
+
+      //remove alert message
+      setTimeout(() => {
+        setAlert(false);
+      }, 3000);
+    }
+  };
   return (
     <View className="flex-1 justify-start items-center">
       <Image
@@ -32,12 +72,15 @@ const LoginScreen = () => {
 
         <View className="w-full flex justify-center items-center ">
           {/* alert */}
-
+          {alert && (
+            <Text className="text-base text-red-600">{alertMessage}</Text>
+          )}
           {/* email */}
           <UserTextInput
             placeholder="Email"
             isPass={false}
             setStateFunction={setEmail}
+            setGetEmailValidationStatus={setGetEmailValidationStatus}
           />
 
           {/* password */}
@@ -48,7 +91,10 @@ const LoginScreen = () => {
           />
 
           {/* login button */}
-          <TouchableOpacity className="w-full rounded-xl bg-primary my-3 px-4 py-2 ">
+          <TouchableOpacity
+            className="w-full rounded-xl bg-primary my-3 px-4 py-2 "
+            onPress={handleLogin}
+          >
             <Text className="py-1 text-white text-base font-bold text-center">
               Sign In
             </Text>

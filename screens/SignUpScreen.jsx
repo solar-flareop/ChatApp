@@ -13,6 +13,9 @@ import { useNavigation } from "@react-navigation/native";
 import { avatars } from "../utils/supports";
 import { MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { firebaseAuth, firestoreDB } from "../config/firebase.config";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 
 const SignUpScreen = () => {
   const screenWidth = Math.round(Dimensions.get("window").width);
@@ -22,8 +25,45 @@ const SignUpScreen = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [avatar, setAvatar] = useState(avatars[0]?.image?.asset?.url);
+  const [isAvatarMenu, setIsAvatarMenu] = useState(false);
+  const [getEmailValidationStatus, setGetEmailValidationStatus] =
+    useState(false);
 
   const navigation = useNavigation();
+
+  const handleAvatar = (item) => {
+    setAvatar(item?.image?.asset?.url);
+    setIsAvatarMenu(false);
+  };
+
+  const handleSignUp = async () => {
+    try {
+      const allDetails = email !== "" && password !== "";
+      if (getEmailValidationStatus && allDetails) {
+        const userCredentails = await createUserWithEmailAndPassword(
+          firebaseAuth,
+          email,
+          password
+        );
+
+        //add to firestoreDB
+        const data = {
+          _id: userCredentails?.user.uid,
+          fullName: name,
+          profilePic: avatar,
+          providerData: userCredentails?.user?.providerData[0],
+        };
+
+        await setDoc(
+          doc(firestoreDB, "users", userCredentails?.user.uid),
+          data
+        );
+        navigation.navigate("LoginScreen");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return (
     <View className="flex-1 justify-start items-center">
@@ -35,31 +75,33 @@ const SignUpScreen = () => {
       />
 
       {/* Avatar List Window */}
-      <>
-        <View className="absolute inset-0 z-10 w-full h-full">
-          <ScrollView>
-            <BlurView
-              tint="light"
-              intensity={90}
-              style={{ width: screenHeight, height: screenHeight }}
-              className="w-full h-full flex-row justify-evenly items-center flex-wrap"
-            >
-              {avatars.map((item) => (
-                <TouchableOpacity
-                  key={item?._id}
-                  className="w-20 m-3 h-20 p-1 rounded-full border-primary relative"
-                >
-                  <Image
-                    source={{ uri: item?.image?.asset?.url }}
-                    className="w-full h-full"
-                    resizeMode="contain"
-                  />
-                </TouchableOpacity>
-              ))}
-            </BlurView>
-          </ScrollView>
-        </View>
-      </>
+      {isAvatarMenu && (
+        <>
+          <View className="absolute inset-0 z-10 w-full h-full">
+            <ScrollView>
+              <BlurView
+                tint="light"
+                intensity={100}
+                className="w-full h-full flex-row justify-evenly items-center flex-wrap py-10 px-4"
+              >
+                {avatars.map((item) => (
+                  <TouchableOpacity
+                    key={item?._id}
+                    onPress={() => handleAvatar(item)}
+                    className="w-20 m-3 h-20 p-1 rounded-full  border-2 border-primary relative"
+                  >
+                    <Image
+                      source={{ uri: item?.image?.asset?.url }}
+                      className="w-full h-full"
+                      resizeMode="contain"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </BlurView>
+            </ScrollView>
+          </View>
+        </>
+      )}
 
       {/* Main View */}
       <View
@@ -73,7 +115,10 @@ const SignUpScreen = () => {
 
         {/* Avatar */}
         <View className="-my-2">
-          <TouchableOpacity className="w-20 h-20 p-1 rounded-full border-2 border-primary relative">
+          <TouchableOpacity
+            onPress={() => setIsAvatarMenu(true)}
+            className="w-20 h-20 p-1 rounded-full border-2 border-primary relative"
+          >
             <Image
               source={{ uri: avatar }}
               className="h-full w-full"
@@ -100,6 +145,7 @@ const SignUpScreen = () => {
             placeholder="Email"
             isPass={false}
             setStateFunction={setEmail}
+            setGetEmailValidationStatus={setGetEmailValidationStatus}
           />
 
           {/* password */}
@@ -110,7 +156,10 @@ const SignUpScreen = () => {
           />
 
           {/* login button */}
-          <TouchableOpacity className="w-full rounded-xl bg-primary my-3 px-4 py-2 ">
+          <TouchableOpacity
+            className="w-full rounded-xl bg-primary my-3 px-4 py-2 "
+            onPress={handleSignUp}
+          >
             <Text className="py-1 text-white text-base font-bold text-center">
               Sign Up
             </Text>

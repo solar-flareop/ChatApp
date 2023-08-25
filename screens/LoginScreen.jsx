@@ -37,7 +37,6 @@ const LoginScreen = () => {
           );
           if (userDetails.exists()) {
             dispatch(SET_USER(userDetails.data()));
-            console.log("User Data:", userDetails.data());
           }
         }
       }
